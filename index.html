@@ -1,120 +1,137 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Car Game</title>
-    <style>
-        .game-container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-        }
-
-        #virtual-joystick {
-            position: absolute;
-            bottom: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            background: rgba(0,0,0,0.5);
-        }
-
-        #rotate-screen-prompt {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0, 0, 0, 0.85);
-            color: white;
-            font-size: 2rem;
-            text-align: center;
-            line-height: 100vh;
-        }
-
-        @media screen and (orientation:portrait) {
-            #rotate-screen-prompt {
-                display: block;
-            }
-
-            .game-container {
-                display: none;
-            }
-        }
-    </style>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<style>
+canvas {
+    border:1px solid #d3d3d3;
+    background-color: #f1f1f1;
+}
+</style>
 </head>
-<body>
-    <div id="rotate-screen-prompt">Please rotate your screen to play!</div>
-    <div class="game-container">
-        <div id="virtual-joystick"></div>
-    </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.8.6/nipplejs.min.js"></script>
-    <script src="https://threejs.org/examples/js/loaders/FBXLoader.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Setting up Three.js
-            const scene = new THREE.Scene();
-            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            const renderer = new THREE.WebGLRenderer();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            document.querySelector('.game-container').appendChild(renderer.domElement);
+<body onload="startGame()">
+<script>
 
-            // Loading the FBX model
-            const loader = new THREE.FBXLoader();
-            let car;
-            loader.load('./car.fbx', (object) => {
-                car = object;
-                scene.add(car);
-            });
+var myGamePiece;
+var myObstacles = [];
+var myScore;
 
-            camera.position.z = 5;
+function startGame() {
+    myGamePiece = new component(30, 30, "red", 10, 120);
+    myGamePiece.gravity = 0.05;
+    myScore = new component("30px", "Consolas", "black", 280, 40, "text");
+    myGameArea.start();
+}
 
-            // Game Mechanics
-            const carSpeed = 0.05;
-            let joystick = nipplejs.create({
-                zone: document.getElementById('virtual-joystick'),
-                mode: 'static',
-                position: { left: '50%', top: '50%' }
-            });
+var myGameArea = {
+    canvas : document.createElement("canvas"),
+    start : function() {
+        this.canvas.width = 480;
+        this.canvas.height = 270;
+        this.context = this.canvas.getContext("2d");
+        document.body.insertBefore(this.canvas, document.body.childNodes[0]);
+        this.frameNo = 0;
+        this.interval = setInterval(updateGameArea, 20);
+        },
+    clear : function() {
+        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+}
 
-            joystick.on('move', function(evt, data) {
-                if (car) {
-                    if (data.direction.angle === "up") {
-                        car.position.z -= carSpeed * data.force;
-                    } else if (data.direction.angle === "down") {
-                        car.position.z += carSpeed * data.force;
-                    } else if (data.direction.angle === "left") {
-                        car.position.x -= carSpeed * data.force;
-                    } else if (data.direction.angle === "right") {
-                        car.position.x += carSpeed * data.force;
-                    }
-                }
-            });
+function component(width, height, color, x, y, type) {
+    this.type = type;
+    this.score = 0;
+    this.width = width;
+    this.height = height;
+    this.speedX = 0;
+    this.speedY = 0;    
+    this.x = x;
+    this.y = y;
+    this.gravity = 0;
+    this.gravitySpeed = 0;
+    this.update = function() {
+        ctx = myGameArea.context;
+        if (this.type == "text") {
+            ctx.font = this.width + " " + this.height;
+            ctx.fillStyle = color;
+            ctx.fillText(this.text, this.x, this.y);
+        } else {
+            ctx.fillStyle = color;
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+        }
+    }
+    this.newPos = function() {
+        this.gravitySpeed += this.gravity;
+        this.x += this.speedX;
+        this.y += this.speedY + this.gravitySpeed;
+        this.hitBottom();
+    }
+    this.hitBottom = function() {
+        var rockbottom = myGameArea.canvas.height - this.height;
+        if (this.y > rockbottom) {
+            this.y = rockbottom;
+            this.gravitySpeed = 0;
+        }
+    }
+    this.crashWith = function(otherobj) {
+        var myleft = this.x;
+        var myright = this.x + (this.width);
+        var mytop = this.y;
+        var mybottom = this.y + (this.height);
+        var otherleft = otherobj.x;
+        var otherright = otherobj.x + (otherobj.width);
+        var othertop = otherobj.y;
+        var otherbottom = otherobj.y + (otherobj.height);
+        var crash = true;
+        if ((mybottom < othertop) || (mytop > otherbottom) || (myright < otherleft) || (myleft > otherright)) {
+            crash = false;
+        }
+        return crash;
+    }
+}
 
-            // Rendering loop
-            function animate() {
-                requestAnimationFrame(animate);
-                renderer.render(scene, camera);
-            }
+function updateGameArea() {
+    var x, height, gap, minHeight, maxHeight, minGap, maxGap;
+    for (i = 0; i < myObstacles.length; i += 1) {
+        if (myGamePiece.crashWith(myObstacles[i])) {
+            return;
+        } 
+    }
+    myGameArea.clear();
+    myGameArea.frameNo += 1;
+    if (myGameArea.frameNo == 1 || everyinterval(150)) {
+        x = myGameArea.canvas.width;
+        minHeight = 20;
+        maxHeight = 200;
+        height = Math.floor(Math.random()*(maxHeight-minHeight+1)+minHeight);
+        minGap = 50;
+        maxGap = 200;
+        gap = Math.floor(Math.random()*(maxGap-minGap+1)+minGap);
+        myObstacles.push(new component(10, height, "green", x, 0));
+        myObstacles.push(new component(10, x - height - gap, "green", x, height + gap));
+    }
+    for (i = 0; i < myObstacles.length; i += 1) {
+        myObstacles[i].x += -1;
+        myObstacles[i].update();
+    }
+    myScore.text="SCORE: " + myGameArea.frameNo;
+    myScore.update();
+    myGamePiece.newPos();
+    myGamePiece.update();
+}
 
-            animate();
+function everyinterval(n) {
+    if ((myGameArea.frameNo / n) % 1 == 0) {return true;}
+    return false;
+}
 
-            // Check orientation and show/hide game or prompt accordingly
-            window.addEventListener('orientationchange', function() {
-                if (window.orientation === 90 || window.orientation === -90) {
-                    document.getElementById('rotate-screen-prompt').style.display = 'none';
-                    document.querySelector('.game-container').style.display = 'block';
-                } else {
-                    document.getElementById('rotate-screen-prompt').style.display = 'block';
-                    document.querySelector('.game-container').style.display = 'none';
-                }
-            });
-        });
-    </script>
+function accelerate(n) {
+    myGamePiece.gravity = n;
+}
+</script>
+<br>
+<button onmousedown="accelerate(-0.2)" onmouseup="accelerate(0.05)">ACCELERATE</button>
+<p>Use the ACCELERATE button to stay in the air</p>
+<p>How long can you stay alive?</p>
 </body>
 </html>
