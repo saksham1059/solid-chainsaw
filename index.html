@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Car Game</title>
+    <style>
+        .game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #virtual-joystick {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.5);
+        }
+
+        #rotate-screen-prompt {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            font-size: 2rem;
+            text-align: center;
+            line-height: 100vh;
+        }
+
+        @media screen and (orientation:portrait) {
+            #rotate-screen-prompt {
+                display: block;
+            }
+
+            .game-container {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="rotate-screen-prompt">Please rotate your screen to play!</div>
+    <div class="game-container">
+        <div id="virtual-joystick"></div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.8.6/nipplejs.min.js"></script>
+    <script src="https://threejs.org/examples/js/loaders/FBXLoader.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Setting up Three.js
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.querySelector('.game-container').appendChild(renderer.domElement);
+
+            // Loading the FBX model
+            const loader = new THREE.FBXLoader();
+            let car;
+            loader.load('./car.fbx', (object) => {
+                car = object;
+                scene.add(car);
+            });
+
+            camera.position.z = 5;
+
+            // Game Mechanics
+            const carSpeed = 0.05;
+            let joystick = nipplejs.create({
+                zone: document.getElementById('virtual-joystick'),
+                mode: 'static',
+                position: { left: '50%', top: '50%' }
+            });
+
+            joystick.on('move', function(evt, data) {
+                if (car) {
+                    if (data.direction.angle === "up") {
+                        car.position.z -= carSpeed * data.force;
+                    } else if (data.direction.angle === "down") {
+                        car.position.z += carSpeed * data.force;
+                    } else if (data.direction.angle === "left") {
+                        car.position.x -= carSpeed * data.force;
+                    } else if (data.direction.angle === "right") {
+                        car.position.x += carSpeed * data.force;
+                    }
+                }
+            });
+
+            // Rendering loop
+            function animate() {
+                requestAnimationFrame(animate);
+                renderer.render(scene, camera);
+            }
+
+            animate();
+
+            // Check orientation and show/hide game or prompt accordingly
+            window.addEventListener('orientationchange', function() {
+                if (window.orientation === 90 || window.orientation === -90) {
+                    document.getElementById('rotate-screen-prompt').style.display = 'none';
+                    document.querySelector('.game-container').style.display = 'block';
+                } else {
+                    document.getElementById('rotate-screen-prompt').style.display = 'block';
+                    document.querySelector('.game-container').style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
